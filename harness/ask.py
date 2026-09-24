@@ -31,6 +31,8 @@ def route(question):
     B-codes, A-codes, shas and Forem ids stay on the Knowledge Base — routing them
     to GROQ would leave Path One demonstrating KB mode on an abstention."""
     return "data" if re.search(r"\bclaim-[a-z0-9-]+", question) else "kb"
+
+
 KB = "kbjnxAgyAimV"
 MODEL = "gemini-3.6-flash"        # A17: per-PROJECT catalogue; billed project serves 3.6
 TEMPERATURE = 0
@@ -159,11 +161,24 @@ READ_TOOL = {
 
 GROQ_TOOL = {
     "name": "groq_query",
-    "description": ("Query the dataset with GROQ. Fetch the exact document by _id when the "
-                    "question names one, and project the fields you need."),
+    "description": (
+        "Query the dataset with GROQ. Schema types & verified fields: "
+        "- 'claim': _id, text, status, expiryStatus, sourceUrl "
+        "- 'finding': _id, title, foundBy, commentIds, status "
+        "- 'patch': _id, findings[]._ref, sha, inMain. "
+        "Canonical query patterns: "
+        "*[_type == 'claim' && _id == 'claim-ledger-population'][0]{status, expiryStatus}, "
+        "*[_type == 'patch' && 'finding-B1' in findings[]._ref][0]{sha, inMain}, "
+        "*[_type == 'finding' && _id == 'finding-B8'][0]{title, commentIds, status}"
+    ),
     "parameters": {
         "type": "object",
-        "properties": {"query": {"type": "string", "description": "A GROQ query."}},
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "A valid GROQ query projecting exact document fields.",
+            }
+        },
         "required": ["query"],
     },
 }
@@ -256,9 +271,13 @@ def ask(question, keys, contexts, token, state):
 
     if instrument == "data":
         endpoint, tool_decl = DATA_ENDPOINT, GROQ_TOOL
-        extra = ("\n\nThis endpoint queries the dataset directly with GROQ. When the question "
-                 "names a document id, fetch that exact document. SOURCES must include the "
-                 "document's sourceUrl field — a resolvable http(s) URL.\n")
+        extra = (
+            "\n\nThis endpoint queries the dataset directly with GROQ.\n"
+            "Schema & Type Routing Rules:\n"
+            "- Questions naming 'claim-*' MUST query _type == 'claim' by exact _id.\n"
+            "- Questions about patch/merge MUST query _type == 'patch' filtering 'finding-<ID>' in findings[]._ref.\n"
+            "- SOURCES must include the document's sourceUrl field — a resolvable http(s) URL.\n"
+        )
 
         def call_tool(args):
             q = (args or {}).get("query")
@@ -304,9 +323,6 @@ def ask(question, keys, contexts, token, state):
         violations.append("UNCERTAINTY is empty")
 
     # A verdict that does not parse is a VIOLATION, never an exemption.
-    # The old pattern was ([A-Z_]+): "standing" and "123" failed to match, became
-    # None, and None is falsy — which silently skipped every check gated on it.
-    # Reproduced 2026-09-21 by an independent review seat.
     lines = re.findall(r"^[ \t]*VERDICT:[ \t]*(.*)$", answer, re.M)
     v = None
     if len(lines) != 1:
@@ -319,7 +335,6 @@ def ask(question, keys, contexts, token, state):
             violations.append(f"VERDICT {raw[:40]!r} is not a contract value")
         else:
             v = raw
-    # Unparseable verdict must not buy an exemption: treat it as evidence-bearing.
     evidence_bearing = v != "INSUFFICIENT_EVIDENCE"
 
     if evidence_bearing and state["reads"] == 0:
@@ -332,8 +347,6 @@ def ask(question, keys, contexts, token, state):
         if instrument == "data" and not re.search(r"https?://\S+", src_text):
             violations.append("dataset answer carries no resolvable URL (A19/R7)")
         if instrument == "kb":
-            # A19 asked AND, not OR. v6 shipped OR and only passed because the model
-            # volunteered both — a request, not a control.
             if not re.search(r"\b[a-z0-9_]+/[a-z0-9_]+", src_text):
                 violations.append("KB answer cites no entry path (A19/R7)")
             if KB not in src_text:
