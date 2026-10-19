@@ -85,15 +85,17 @@ required **both**. The live answers happened to supply both, so their content he
 was weaker than specified. Version 7 corrected that to an AND and received its own independent
 run. A later review found that malformed verdicts could bypass verdict-dependent checks.
 Version 8 rejects those values; `evidence/harness-graded-v8-2026-09-21-aethar/` records five of
-five, exit 0, with the CLI hash matching `harness/ask.py` in this repo. Earlier transcripts remain
-evidence for their respective versions.
+five, exit 0, with the CLI hash matching `harness/ask.py` in this repo at the time of that run
+(sha256 `98dc0e2c…`, recorded in its `run-meta.txt`). PR #1 (2026-09-22, GROQ schema routing)
+changed `harness/ask.py` after that run, and no graded run covers the current file yet. Earlier
+transcripts remain evidence for their respective versions.
 
 No transcript was regenerated for a better result.
 
 ## What this does not establish
 
-The current CLI's five questions held on **one v8 graded run**, one model, one key. That is not
-general reliability.
+The CLI's five questions held on **one v8 graded run**, one model, one key. That is not
+general reliability, and it predates the post-v8 change noted above.
 
 The snapshot bounding is modest and the agent says so itself: it cannot see what happened to a
 branch after the record was built. It happens to still be right about that branch. That is luck,
@@ -116,3 +118,7 @@ python3 harness/ask.py --all
 
 The Python harness and serverless agent use only the Python standard library. The Studio uses
 Sanity's normal React and TypeScript dependencies.
+
+More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (the loop, routing and validator),
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) (verified local commands, including how to check
+which source the live site serves), and [`CONTRIBUTING.md`](CONTRIBUTING.md).
