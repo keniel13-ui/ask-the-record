@@ -1,0 +1,11 @@
+# Lint config for the stdlib-only Python (harness/, web/, tests/).
+# Lint only: the existing code is not reformatted.
+line-length = 120
+target-version = "py39"
+# evidence/ holds frozen copies of graded code; it is never edited, so never linted.
+extend-exclude = ["evidence", "studio"]
+
+[lint]
+select = ["E", "F", "W", "B"]
+# B904 (raise ... from err) is style here: Failure messages already carry the cause.
+ignore = ["B904"]
